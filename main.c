@@ -132,7 +132,7 @@ static void reset_devices(void) {
     #endif
 }
 
-STATIC void start_mp(supervisor_allocation *heap, bool first_run) {
+STATIC void start_mp(supervisor_allocation *heap, bool first_run, bool boot_py) {
     supervisor_workflow_reset();
 
     // Stack limit should be less than real stack size, so we have a chance
@@ -181,8 +181,10 @@ STATIC void start_mp(supervisor_allocation *heap, bool first_run) {
     // Record which alarm woke us up, if any. An object may be created so the heap must be functional.
     // There is no alarm if this is not the first time code.py or the REPL has been run.
     shared_alarm_save_wake_alarm(first_run ? common_hal_alarm_create_wake_alarm() : mp_const_none);
-    // Reset alarm module only after we retrieved the wakeup alarm.
-    alarm_reset();
+    if (!boot_py) {
+        // Reset alarm module only after we retrieved the wakeup alarm.
+        alarm_reset();
+    }
     #endif
 }
 
@@ -410,7 +412,7 @@ STATIC bool run_code_py(safe_mode_t safe_mode, bool first_run, bool *simulate_re
         supervisor_allocation *heap = allocate_remaining_memory();
 
         // Prepare the VM state. Includes an alarm check/reset for sleep.
-        start_mp(heap, first_run);
+        start_mp(heap, first_run, false);
 
         #if CIRCUITPY_USB
         usb_setup_with_vm();
@@ -756,7 +758,7 @@ STATIC void __attribute__ ((noinline)) run_boot_py(safe_mode_t safe_mode) {
     supervisor_allocation *heap = allocate_remaining_memory();
 
     // true means this is the first set of VM's after a hard reset.
-    start_mp(heap, true);
+    start_mp(heap, true, true);
 
     #if CIRCUITPY_USB
     // Set up default USB values after boot.py VM starts but before running boot.py.
@@ -858,7 +860,7 @@ STATIC int run_repl(bool first_run) {
     stack_resize();
     filesystem_flush();
     supervisor_allocation *heap = allocate_remaining_memory();
-    start_mp(heap, first_run);
+    start_mp(heap, first_run, false);
 
     #if CIRCUITPY_USB
     usb_setup_with_vm();
